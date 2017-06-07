@@ -131,25 +131,16 @@ func (j *Job) At(t string) *Job {
 	if hour < 0 || hour > 23 || min < 0 || min > 59 {
 		panic("time format error.")
 	}
-	// time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-	mock := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), int(hour), int(min), 0, 0, loc)
 
 	if j.unit == "days" {
-		if time.Now().After(mock) {
-			j.lastRun = mock
-		} else {
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-1, hour, min, 0, 0, loc)
-		}
+		j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-1, hour, min, 0, 0, loc)
 	} else if j.unit == "weeks" {
-		if time.Now().After(mock) {
-			i := mock.Weekday() - j.startDay
-			if i < 0 {
-				i = 7 + i
-			}
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), hour, min, 0, 0, loc)
-		} else {
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-7, hour, min, 0, 0, loc)
+		mock := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), int(hour), int(min), 0, 0, loc)
+		i := mock.Weekday() - j.startDay
+		if i <= 0 {
+			i = 7 + i
 		}
+		j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), hour, min, 0, 0, loc)
 	}
 	return j
 }
@@ -158,8 +149,9 @@ func (j *Job) At(t string) *Job {
 func (j *Job) scheduleNextRun() {
 	if j.lastRun == time.Unix(0, 0) {
 		if j.unit == "weeks" {
-			i := time.Now().Weekday() - j.startDay
-			if i < 0 {
+			mock := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
+			i := mock.Weekday() - j.startDay
+			if i <= 0 {
 				i = 7 + i
 			}
 			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), 0, 0, 0, 0, loc)
@@ -175,21 +167,23 @@ func (j *Job) scheduleNextRun() {
 	} else {
 		switch j.unit {
 		case "minutes":
-			j.period = time.Duration(j.interval * 60)
+			j.period = time.Duration(j.interval) * time.Duration(60)
 			break
 		case "hours":
-			j.period = time.Duration(j.interval * 60 * 60)
+			j.period = time.Duration(j.interval) * time.Duration(60*60)
 			break
 		case "days":
-			j.period = time.Duration(j.interval * 60 * 60 * 24)
+			j.period = time.Duration(j.interval) * time.Duration(60*60*24)
 			break
 		case "weeks":
-			j.period = time.Duration(j.interval * 60 * 60 * 24 * 7)
+			j.period = time.Duration(j.interval) * time.Duration(60*60*24*7)
 			break
 		case "seconds":
-			j.period = time.Duration(j.interval)
+			j.period = time.Duration(j.interval) * time.Second
+			break
 		}
 		j.nextRun = j.lastRun.Add(j.period * time.Second)
+
 	}
 }
 
@@ -381,7 +375,6 @@ func (s *Scheduler) getRunnableJobs() (running_jobs [MAXJOBNUM]*Job, n int) {
 		if s.jobs[i].shouldRun() {
 
 			runnableJobs[n] = s.jobs[i]
-			//fmt.Println(runnableJobs)
 			n++
 		} else {
 			break
