@@ -81,7 +81,8 @@ func NewJob(intervel uint64) *Job {
 
 // True if the job should be run now
 func (j *Job) shouldRun() bool {
-	return time.Now().After(j.nextRun)
+	t := time.Now().In(loc)
+	return t.After(j.nextRun)
 }
 
 //Run the job and immdiately reschedulei it
@@ -131,34 +132,52 @@ func (j *Job) At(t string) *Job {
 	if hour < 0 || hour > 23 || min < 0 || min > 59 {
 		panic("time format error.")
 	}
+	now := time.Now().In(loc)
+	j.lastTime(now, hour, min)
+	return j
+}
+
+func (j *Job) lastTime(t time.Time, hour, min int) {
+	at := time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, loc)
+	now := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, loc)
 
 	if j.unit == "days" {
-		j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-1, hour, min, 0, 0, loc)
-	} else if j.unit == "weeks" {
-		mock := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), int(hour), int(min), 0, 0, loc)
-		i := mock.Weekday() - j.startDay
-		if i <= 0 {
-			i = 7 + i
+		if now.After(at) {
+			j.lastRun = time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, loc)
+		} else {
+			j.lastRun = time.Date(t.Year(), t.Month(), t.Day()-1, hour, min, 0, 0, loc)
 		}
-		j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), hour, min, 0, 0, loc)
+
+	} else if j.unit == "weeks" {
+		mock := time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, loc)
+		i := mock.Weekday() - j.startDay
+		isToday := false
+		if i < 0 {
+			i = 7 + i
+
+		} else if i == 0 {
+			isToday = true
+		}
+		if isToday {
+			if now.After(at) {
+				j.lastRun = time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, loc)
+			} else {
+				j.lastRun = time.Date(t.Year(), t.Month(), t.Day()-int(i), hour, min, 0, 0, loc)
+			}
+		} else {
+			j.lastRun = time.Date(t.Year(), t.Month(), t.Day()-int(i), hour, min, 0, 0, loc)
+		}
+	} else {
+		j.lastRun = time.Now().In(loc)
 	}
-	return j
+
 }
 
 //Compute the instant when this job should run next
 func (j *Job) scheduleNextRun() {
 	if j.lastRun == time.Unix(0, 0) {
-		if j.unit == "weeks" {
-			mock := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
-			i := mock.Weekday() - j.startDay
-			if i <= 0 {
-				i = 7 + i
-			}
-			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), 0, 0, 0, 0, loc)
-
-		} else {
-			j.lastRun = time.Now()
-		}
+		t := time.Now().In(loc)
+		j.lastTime(t, 0, 0)
 	}
 
 	if j.period != 0 {
@@ -183,7 +202,6 @@ func (j *Job) scheduleNextRun() {
 			break
 		}
 		j.nextRun = j.lastRun.Add(j.period * time.Second)
-
 	}
 }
 
