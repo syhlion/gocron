@@ -20,6 +20,7 @@ package gocron
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"runtime"
 	"sort"
@@ -162,7 +163,7 @@ func (j *Job) lastTime(t time.Time, hour, min int) {
 			if now.After(at) {
 				j.lastRun = time.Date(t.Year(), t.Month(), t.Day(), hour, min, 0, 0, loc)
 			} else {
-				j.lastRun = time.Date(t.Year(), t.Month(), t.Day()-int(i), hour, min, 0, 0, loc)
+				j.lastRun = time.Date(t.Year(), t.Month(), t.Day()-7, hour, min, 0, 0, loc)
 			}
 		} else {
 			j.lastRun = time.Date(t.Year(), t.Month(), t.Day()-int(i), hour, min, 0, 0, loc)
@@ -170,6 +171,7 @@ func (j *Job) lastTime(t time.Time, hour, min int) {
 	} else {
 		j.lastRun = time.Now().In(loc)
 	}
+	fmt.Println("last ", j.lastRun)
 
 }
 
@@ -202,6 +204,7 @@ func (j *Job) scheduleNextRun() {
 			break
 		}
 		j.nextRun = j.lastRun.Add(j.period * time.Second)
+		fmt.Println(j.nextRun)
 	}
 }
 
